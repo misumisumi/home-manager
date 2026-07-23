@@ -1,25 +1,34 @@
-{ lib, pkgs, ... }:
 {
-  config = {
-    programs.texlive.enable = true;
+  pkgs,
+  config,
+  ...
+}:
 
-    # Set up a minimal mocked texlive package set.
-    nixpkgs.overlays = [
-      (_self: _super: {
-        texlive = {
-          collection-basic = pkgs.writeTextDir "collection-basic" "";
-          combine =
-            tpkgs:
-            pkgs.symlinkJoin {
-              name = "dummy-texlive-combine";
-              paths = lib.attrValues tpkgs;
-            };
-        };
-      })
-    ];
+let
+  inherit (config.lib.test) mkStubPackage;
 
-    nmt.script = ''
-      assertFileExists home-path/collection-basic
-    '';
+  fakeTexliveSet = {
+    collection-basic = pkgs.writeTextDir "collection-basic" "";
   };
+in
+{
+  programs.texlive = {
+    enable = true;
+    package = mkStubPackage {
+      name = "texlive";
+      extraAttrs = {
+        withPackages =
+          tpkgs:
+          pkgs.symlinkJoin {
+            name = "dummy-texlive-combine";
+            paths = tpkgs fakeTexliveSet;
+          };
+      };
+    };
+    extraPackages = ps: with ps; [ collection-basic ];
+  };
+
+  nmt.script = ''
+    assertFileExists home-path/collection-basic
+  '';
 }
